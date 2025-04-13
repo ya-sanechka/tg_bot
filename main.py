@@ -1,5 +1,7 @@
 # Импортируем необходимые классы.
 import logging
+import sqlite3
+from collections import defaultdict
 from io import BytesIO
 from pprint import pprint
 
@@ -22,8 +24,9 @@ inline_keyboard = [
         ]]
 
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
-
-
+users = defaultdict()
+last_requests = []
+bd = sqlite3.connect('Films.sqlite')
 
 async def start(update, context):
     user = update.effective_user
@@ -75,6 +78,8 @@ async def finding(update, context):
         f'🎥 Описание фильма: {movies1['description'].replace('\xa0', ' ')}'
 
     ]
+
+    last_requests.append(movies1['names'][0]['name'])
     r = requests.get(movies1['poster']['url'])
     url = r.url
     await update.message.reply_text(url)
@@ -90,7 +95,8 @@ async def finding(update, context):
 
 
     reply_markup1 = InlineKeyboardMarkup(inline_keyboard)
-    await update.message.reply_text(ans, reply_markup=reply_markup1)
+    await update.message.reply_text(ans)
+    await update.message.reply_text('Добавить фильм в избранное?', reply_markup=reply_markup1)
 
 async def button(update, context):
     """Parses the CallbackQuery and updates the message text."""
@@ -101,6 +107,25 @@ async def button(update, context):
     await query.answer()
     if int(query.data) == 1:
         await query.edit_message_text(text=f"Фильм успешно добавлен в избранное. \nПосмотреть избранное можно по команде /favotite")
+        sqlite_insert_query = """INSERT INTO Users
+                                  (username, films)
+                                  VALUES
+                                  (?, ?);"""
+        username = list(list(str(update.effective_user).split(', '))[4].split("'"))[1]
+
+        cursor = bd.cursor()
+        data_tuple = (username, last_requests[-1])
+        cursor.execute(sqlite_insert_query, data_tuple)
+
+
+
+
+
+        if username in users:
+            users[username].append(last_requests[-1])
+        else:
+            users[username] = [last_requests[-1]]
+        print(users)
     else:
         await query.edit_message_text(text="Напишите название фильма, который Вы хотите найти")
 
@@ -113,11 +138,25 @@ async def top_of_films(update, context):
 
 
 async def yours_films(update, context):
-    await update.message.reply_text("ваши избранные фильмы")
+    await update.message.reply_text("Ваши избранные фильмы:")
+    ans = ''
+    cursor = bd.cursor()
+    un = list(list(str(update.effective_user).split(', '))[4].split("'"))[1]
 
+    result = cursor.execute(f"""SELECT * FROM Users
+                WHERE username = ?""", (un,)).fetchall()
 
+    if result:
+        i = 1
+        for f in result:
+            ans += str(i) + '. ' + f[2] + '\n'
+            i += 1
 
+    else:
+        ans = 'Избранные фильмы не найдены :('
 
+    await update.message.reply_text(ans)
+    print(ans)
 
 async def hz(update, context):
     await update.message.reply_text(
@@ -148,7 +187,7 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("search", find_film))
     application.add_handler(CommandHandler("top_films", top_of_films))
-    application.add_handler(CommandHandler("favorite", top_of_films))
+    application.add_handler(CommandHandler("favorite", yours_films))
     application.add_handler(CommandHandler("hz", hz))
     application.add_handler(CallbackQueryHandler(button))
 
