@@ -24,8 +24,8 @@ inline_keyboard = [
         ]]
 
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
-
-
+users = defaultdict()
+last_requests = []
 bd = sqlite3.connect('Films.sqlite')
 
 async def start(update, context):
@@ -62,42 +62,27 @@ async def finding(update, context):
         params=params
     )
     movies = response.json()
-    if movies['docs']:
-        movies1 = movies['docs'][0]
-        pprint(movies1)
-        await update.message.reply_text('Возможно, вы имели ввиду:')
-        inf_film = [
-            f'🎬 Название фильма - {movies1['name']}',
-            f'🎬 Год выпуска фильма - {movies1['year']}',
-            f'🎬 Страны выпуска: {', '.join([i['name'] for i in movies1['countries']])}',
-            f'🎬 Жанры: {', '.join([i['name'] for i in movies1['genres']])}',
-            f'🎬 Длительность фильма - {movies1['movieLength']} минут',
-            f'🎬 Место в топе 250 - {movies1['top250']}',
-            f'🎬 Оценка - {movies1['rating']['imdb']}',
-            f'🎬 Возрастное ограничение - {movies1['ageRating']}+\n',
-            f'🎥 Описание фильма: {movies1['description'].replace('\xa0', ' ')}'
 
-        ]
-        await update.message.reply_text(inf_film)
-        sqlite_insert_query = """INSERT INTO Requests
-                                          (username, tgnik, req_film)
-                                          VALUES
-                                          (?, ?, ?);"""
-        username = list(list(str(update.effective_user).split('id='))[1].split(','))[0]
-        tgnik = list(list(str(update.effective_user).split("username='"))[1].split("'"))[0]
+    movies1 = movies['docs'][0]
+    pprint(movies1)
+    await update.message.reply_text('Возможно, вы имели ввиду:')
+    inf_film = [
+        f'🎬 Название фильма - {movies1['name']}',
+        f'🎬 Год выпуска фильма - {movies1['year']}',
+        f'🎬 Страны выпуска: {', '.join([i['name'] for i in movies1['countries']])}',
+        f'🎬 Жанры: {', '.join([i['name'] for i in movies1['genres']])}',
+        f'🎬 Длительность фильма - {movies1['movieLength']} минут',
+        f'🎬 Место в топе 250 - {movies1['top250']}',
+        f'🎬 Оценка - {movies1['rating']['imdb']}',
+        f'🎬 Возрастное ограничение - {movies1['ageRating']}+\n',
+        f'🎥 Описание фильма: {movies1['description'].replace('\xa0', ' ')}'
 
-        print(tgnik)
-        cursor = bd.cursor()
-        data_tuple = (username, tgnik, movies1['name'])
-        cursor.execute(sqlite_insert_query, data_tuple)
-        bd.commit()
+    ]
 
-        r = requests.get(movies1['poster']['url'])
-        url = r.url
-        await update.message.reply_text(url)
-
-    else:
-        await update.message.reply_text('Ничего не найдено:(\nПроверьте правильность введенного названия')
+    last_requests.append(movies1['name'])
+    r = requests.get(movies1['poster']['url'])
+    url = r.url
+    await update.message.reply_text(url)
 
 
 
@@ -129,22 +114,20 @@ async def button(update, context):
         username = list(list(str(update.effective_user).split('id='))[1].split(','))[0]
         tgnik = list(list(str(update.effective_user).split("username='"))[1].split("'"))[0]
 
-        cursor = bd.cursor()
-        result = cursor.execute(f"""SELECT * FROM Requests
-                        WHERE username = ?""", (username,)).fetchall()
-        last_request = result[-1][-1]
-        print(result)
-
         print(tgnik)
         cursor = bd.cursor()
-        data_tuple = (username, tgnik, last_request)
+        data_tuple = (username, tgnik, last_requests[-1])
         cursor.execute(sqlite_insert_query, data_tuple)
         bd.commit()
 
 
 
 
-
+        if username in users:
+            users[username].append(last_requests[-1])
+        else:
+            users[username] = [last_requests[-1]]
+        print(users)
     else:
         await query.edit_message_text(text="Напишите название фильма, который Вы хотите найти")
 
@@ -162,10 +145,9 @@ async def yours_films(update, context):
     cursor = bd.cursor()
     username = list(list(str(update.effective_user).split('id='))[1].split(','))[0]
 
-    res = cursor.execute(f"""SELECT * FROM Users
+    result = cursor.execute(f"""SELECT * FROM Users
                 WHERE username = ?""", (username,)).fetchall()
-    print(res)
-    result = set(res)
+    print(result)
     if result:
         i = 1
         for f in result:
@@ -181,7 +163,7 @@ async def yours_films(update, context):
 async def hz(update, context):
     await update.message.reply_text(
         "хз, че-то тут будет")
-
+1
 async def stop(update, context):
     await update.message.reply_text("Всего доброго!")
     return ConversationHandler.END
@@ -216,3 +198,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
