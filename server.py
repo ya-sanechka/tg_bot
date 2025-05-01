@@ -1,4 +1,3 @@
-# Импортируем необходимые классы.
 import logging
 import sqlite3
 from collections import defaultdict
@@ -48,8 +47,6 @@ else:
             print({'film': movies1['name'], 'year': film_inf[1], 'time': list(film_inf[2].split(' '))[0] + ' минут',
                    'rating': film_inf[3]})
 
-
-
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
 )
@@ -58,15 +55,16 @@ logger = logging.getLogger(__name__)
 reply_keyboard = [['/search', '/top_films'],
                   ['/favorite', '/hz']]
 inline_keyboard = [
-        [
-            InlineKeyboardButton("Добавить в избранное", callback_data="1"),
-            InlineKeyboardButton("Новый поиск", callback_data="2"),
-        ]]
+    [
+        InlineKeyboardButton("Добавить в избранное", callback_data="1"),
+        InlineKeyboardButton("Новый поиск", callback_data="2"),
+    ]]
 
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
 users = defaultdict()
 last_requests = []
 bd = sqlite3.connect('Films.sqlite')
+
 
 async def start(update, context):
     user = update.effective_user
@@ -76,16 +74,16 @@ async def start(update, context):
     )
 
 
-
-
 async def help_command(update, context):
     await update.message.reply_text("тут будет тутор по боту")
-async def find_film(update, context):
 
+
+async def find_film(update, context):
     await update.message.reply_text(
         "Напишите название фильма, который Вы хотите найти")
 
     return 1
+
 
 async def finding(update, context):
     film = update.message.text
@@ -124,19 +122,16 @@ async def finding(update, context):
     url = r.url
     await update.message.reply_text(url)
 
-
-
-
     for i in range(50):
         print('--------')
     ans = ''
     for s in inf_film:
         ans += s + '\n'
 
-
     reply_markup1 = InlineKeyboardMarkup(inline_keyboard)
     await update.message.reply_text(ans)
     await update.message.reply_text('Добавить фильм в избранное?', reply_markup=reply_markup1)
+
 
 async def button(update, context):
     """Parses the CallbackQuery and updates the message text."""
@@ -146,7 +141,8 @@ async def button(update, context):
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     await query.answer()
     if int(query.data) == 1:
-        await query.edit_message_text(text=f"Фильм успешно добавлен в избранное. \nПосмотреть избранное можно по команде /favorite")
+        await query.edit_message_text(
+            text=f"Фильм успешно добавлен в избранное. \nПосмотреть избранное можно по команде /favorite")
         sqlite_insert_query = """INSERT INTO Users
                                   (username, tgnik, films)
                                   VALUES
@@ -159,9 +155,6 @@ async def button(update, context):
         data_tuple = (username, tgnik, last_requests[-1])
         cursor.execute(sqlite_insert_query, data_tuple)
         bd.commit()
-
-
-
 
         if username in users:
             users[username].append(last_requests[-1])
@@ -176,15 +169,22 @@ async def button(update, context):
 
 async def top_of_films(update, context):
     await update.message.reply_text(
-        "тут будут топы фильмов")
-    f = open('imdb_top_1000.csv')
-    title = f.readline()
-    top100 = []
-    for s in f.readlines():
-        film_inf = list(s.split(','))
-        print(film_inf)
-
-
+        "Топ 10 фильмов по версии IMDB:")
+    f = open('ru_imdb_top_25.csv')
+    top_films = []
+    tit = f.readline()
+    for film in f.readlines():
+        film_i = list(film[:-1].split(','))
+        r = f'{film_i[0]}: {film_i[1]} год, длительность - {film_i[2]}, рейтинг IMDB - {film_i[3]}'
+        top_films.append(r)
+    ans = ''
+    i = 1
+    for s in top_films:
+        ans += str(i) + '. ' + s + '\n'
+        i += 1
+        if i == 11:
+            break
+    await update.message.reply_text(ans)
 
 
 async def yours_films(update, context):
@@ -208,16 +208,18 @@ async def yours_films(update, context):
     await update.message.reply_text(ans)
     print(ans)
 
+
 async def hz(update, context):
     await update.message.reply_text(
         "хз, че-то тут будет")
-1
+
+
 async def stop(update, context):
     await update.message.reply_text("Всего доброго!")
     return ConversationHandler.END
 
-def main():
 
+def main():
     application = Application.builder().token(BOT_TOKEN).build()
     conv_handler = ConversationHandler(
 
@@ -246,4 +248,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
