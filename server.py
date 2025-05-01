@@ -2,13 +2,53 @@
 import logging
 import sqlite3
 from collections import defaultdict
-from io import BytesIO
 from pprint import pprint
 
 import requests
 from telegram.ext import Application, MessageHandler, filters, CommandHandler, ConversationHandler, CallbackQueryHandler
 from config import BOT_TOKEN
 from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+
+if open('ru_imdb_top_25.csv'):
+    pass
+else:
+
+    import requests
+    import csv
+
+    with open('ru_imdb_top_25.csv', 'w', newline='') as csvfile:
+        fieldnames = ['film', 'year', 'time', 'rating']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+
+        f = open('imdb_top_1000.csv')
+        title = f.readline()
+        i = 1
+        for s in f.readlines()[:10]:
+            film_inf = list(s.split(','))
+            film = film_inf[0]
+            headers = {"X-API-KEY": "JS610HH-JHNMHK5-PFJ8M72-RA4VHDH"}
+
+            query = film
+            params = {
+                'query': query
+            }
+            response = requests.get(
+                'https://api.kinopoisk.dev/v1.4/movie/search',
+                headers=headers,
+                params=params
+            )
+            movies = response.json()
+
+            movies1 = movies['docs'][0]
+            writer.writerow(
+                {'film': movies1['name'], 'year': film_inf[1], 'time': list(film_inf[2].split(' '))[0] + ' минут',
+                 'rating': film_inf[3]})
+            print({'film': movies1['name'], 'year': film_inf[1], 'time': list(film_inf[2].split(' '))[0] + ' минут',
+                   'rating': film_inf[3]})
+
+
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
@@ -50,7 +90,7 @@ async def find_film(update, context):
 async def finding(update, context):
     film = update.message.text
 
-    headers = {"X-API-KEY": "QG01J6A-MCEMR61-KPKT65M-FWVD582"}
+    headers = {"X-API-KEY": "JS610HH-JHNMHK5-PFJ8M72-RA4VHDH"}
 
     query = film
     params = {
@@ -137,6 +177,14 @@ async def button(update, context):
 async def top_of_films(update, context):
     await update.message.reply_text(
         "тут будут топы фильмов")
+    f = open('imdb_top_1000.csv')
+    title = f.readline()
+    top100 = []
+    for s in f.readlines():
+        film_inf = list(s.split(','))
+        print(film_inf)
+
+
 
 
 async def yours_films(update, context):
