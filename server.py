@@ -8,20 +8,20 @@ from telegram.ext import Application, MessageHandler, filters, CommandHandler, C
 from config import BOT_TOKEN
 from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 
-if open('ru_imdb_top_25.csv'):
+if open('data/ru_imdb_top_25.csv'):
     pass
 else:
 
     import requests
     import csv
 
-    with open('ru_imdb_top_25.csv', 'w', newline='') as csvfile:
+    with open('data/ru_imdb_top_25.csv', 'w', newline='') as csvfile:
         fieldnames = ['film', 'year', 'time', 'rating']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
 
-        f = open('imdb_top_1000.csv')
+        f = open('data/imdb_top_1000.csv')
         title = f.readline()
         i = 1
         for s in f.readlines()[:10]:
@@ -53,7 +53,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 reply_keyboard = [['/search', '/top_films'],
-                  ['/favorite', '/hz']]
+                  ['/favorite', '/help']]
 inline_keyboard = [
     [
         InlineKeyboardButton("Добавить в избранное", callback_data="1"),
@@ -63,19 +63,23 @@ inline_keyboard = [
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
 users = defaultdict()
 last_requests = []
-bd = sqlite3.connect('Films.sqlite')
+bd = sqlite3.connect('data/Films.sqlite')
 
 
 async def start(update, context):
     user = update.effective_user
-    await update.message.reply_html(
+    '''await update.message.reply_html(
         rf"Привет {user.mention_html()}! Я бот фильмов! 🍿🎥✮⋆˙ Можешь найти любой фильм, нажав команду /search -`♡´-",
         reply_markup=markup
+    )'''
+    caption = rf"Привет {user.mention_html()}! Я бот фильмов FILMIX! 🍿🎥✮⋆˙ Можешь найти любой фильм, нажав команду /search"
+    photo_path = 'data/img.png'
+    await update.message.reply_photo(
+        photo=open(photo_path, 'rb'),
+        caption=caption,
+        parse_mode='HTML', reply_markup=markup
     )
 
-
-async def help_command(update, context):
-    await update.message.reply_text("тут будет тутор по боту")
 
 
 async def find_film(update, context):
@@ -86,11 +90,11 @@ async def find_film(update, context):
 
 
 async def finding(update, context):
-    film = update.message.text
+    film0 = update.message.text
 
     headers = {"X-API-KEY": "JS610HH-JHNMHK5-PFJ8M72-RA4VHDH"}
 
-    query = film
+    query = film0
     params = {
         'query': query
     }
@@ -134,11 +138,7 @@ async def finding(update, context):
 
 
 async def button(update, context):
-    """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
-
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     await query.answer()
     if int(query.data) == 1:
         await query.edit_message_text(
@@ -170,7 +170,7 @@ async def button(update, context):
 async def top_of_films(update, context):
     await update.message.reply_text(
         "Топ 10 фильмов по версии IMDB:")
-    f = open('ru_imdb_top_25.csv')
+    f = open('data/ru_imdb_top_25.csv')
     top_films = []
     tit = f.readline()
     for film in f.readlines():
@@ -196,11 +196,17 @@ async def yours_films(update, context):
     result = cursor.execute(f"""SELECT * FROM Users
                 WHERE username = ?""", (username,)).fetchall()
     print(result)
+    found = []
     if result:
+        for fi in result:
+            if fi[3] not in found:
+                found.append(fi[3])
+
         i = 1
-        for f in result:
-            ans += str(i) + '. ' + f[3] + '\n'
+        for fi in found:
+            ans += str(i) + '. ' + fi + '\n'
             i += 1
+
 
     else:
         ans = 'Избранные фильмы не найдены :('
@@ -212,6 +218,48 @@ async def yours_films(update, context):
 async def hz(update, context):
     await update.message.reply_text(
         "хз, че-то тут будет")
+
+
+async def help_command(update, context):
+    text = ''
+    await update.message.reply_text('''Инструкция по использованию бота "Фильмы" 🍿🎥 1. Запуск бота Начните общение 
+    с ботом, нажав кнопку Start или отправив команду /start. Бот приветствует вас и предоставляет клавиатуру с 
+    основными командами.
+
+2. Основные команды /search — поиск фильма по названию. После ввода команды бот запросит название фильма. Отправьте 
+название, и бот найдет информацию о фильме (год выпуска, жанр, рейтинг и т. д.), а также покажет постер.
+
+/top_films — просмотр топ-10 фильмов по версии IMDB. Бот выведет список с названиями, годами выпуска, длительностью и 
+рейтингом.
+
+/favorite — просмотр вашего списка избранных фильмов. Фильмы можно добавить в избранное во время поиска.
+
+/help — краткая инструкция по использованию бота (эта информация).
+
+/hz — команда без функционала (на будущее).
+
+3. Поиск фильма
+Введите команду /search.
+
+Бот попросит ввести название фильма. Отправьте название.
+
+Бот найдет информацию о фильме и предложит:
+
+Добавить фильм в избранное (кнопка "Добавить в избранное").
+
+Начать новый поиск (кнопка "Новый поиск").
+
+4. Добавление в избранное После поиска фильма нажмите кнопку "Добавить в избранное", чтобы сохранить фильм в вашем 
+списке. Просмотреть избранное можно командой /favorite.
+
+5. Просмотр избранного
+Введите команду /favorite, чтобы увидеть список сохраненных фильмов. Если список пуст, бот сообщит об этом.
+
+6. Завершение работы
+Чтобы завершить диалог, используйте команду /stop. Бот попрощается с вами.
+
+
+    ''')
 
 
 async def stop(update, context):
@@ -236,11 +284,11 @@ def main():
 
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("search", find_film))
     application.add_handler(CommandHandler("top_films", top_of_films))
     application.add_handler(CommandHandler("favorite", yours_films))
     application.add_handler(CommandHandler("hz", hz))
+    application.add_handler(CommandHandler('help', help_command))
     application.add_handler(CallbackQueryHandler(button))
 
     application.run_polling()
